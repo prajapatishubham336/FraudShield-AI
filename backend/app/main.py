@@ -94,8 +94,9 @@ def predict(t: Transaction):
 
     reasons = explain(t, score)
     con = db(); 
-    con.execute("INSERT INTO predictions(amount, probability, risk, action, reasons) VALUES (?,?,?,?,?", 
-                (t.amt, p, risk, action, json.dumps(reasons))); 
+    con.execute(
+    "INSERT INTO predictions(amount, probability, risk, action, reasons) VALUES (?,?,?,?,?)",
+    (t.amt, p, risk, action, json.dumps(reasons))) 
     con.commit(); 
     con.close()
     return {"fraud_probability": round(p, 5), 
@@ -108,7 +109,7 @@ def predict(t: Transaction):
 def stats():
     con = db(); 
     rows = con.execute("SELECT amount, probability, risk, action, created_at, reasons FROM predictions ORDER BY id DESC LIMIT 100").fetchall(); 
-    
+
     con.close()
     return {"total": len(rows), "high_risk": 
             sum(r[2] == "HIGH" for r in rows), "medium_risk": 
