@@ -13,7 +13,10 @@ MODEL_PATH = ROOT / "model" / "fraudshield.joblib"
 DB_PATH = ROOT / "data" / "fraudshield.db"
 
 app = FastAPI(title="FraudShield AI", version="1.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], 
+                   allow_credentials=True, 
+                   allow_methods=["*"], 
+                   allow_headers=["*"])
 
 class Transaction(BaseModel):
     amt: float = Field(gt=0)
@@ -56,13 +59,18 @@ def feature_frame(t: Transaction):
 
 def explain(t: Transaction, risk_score: int):
     reasons = []
-    if t.amt >= 5000: reasons.append("transaction amount is unusually high")
-    if t.amt >= 10000: reasons.append("very large transaction value")
+    if t.amt >= 5000: 
+        reasons.append("transaction amount is unusually high")
+    if t.amt >= 10000: 
+        reasons.append("very large transaction value")
     dt = pd.to_datetime(t.trans_date_trans_time, errors="coerce")
-    if not pd.isna(dt) and (dt.hour <= 5 or dt.hour >= 23): reasons.append("transaction occurred at an unusual hour")
+    if not pd.isna(dt) and (dt.hour <= 5 or dt.hour >= 23): 
+        reasons.append("transaction occurred at an unusual hour")
     d = distance_km(t.lat, t.long, t.merch_lat, t.merch_long)
-    if d >= 300: reasons.append("merchant is far from the customer location")
-    if t.city_pop >= 1000000 and t.amt > 2000: reasons.append("large transaction in a high-volume population area")
+    if d >= 300: 
+        reasons.append("merchant is far from the customer location")
+    if t.city_pop >= 1000000 and t.amt > 2000: 
+        reasons.append("large transaction in a high-volume population area")
     return reasons[:4] or ["model identified a combination of risk signals"]
 
 @app.get("/api/health")
@@ -76,16 +84,34 @@ def predict(t: Transaction):
     bundle = joblib.load(MODEL_PATH)
     model = bundle["model"]
     threshold = float(bundle.get("threshold", 0.5))
+
     X = feature_frame(t)
     p = float(model.predict_proba(X)[:, 1][0])
+    
     score = int(round(p * 100))
     risk = "HIGH" if score >= 71 else "MEDIUM" if score >= 31 else "LOW"
     action = "BLOCK / MANUAL REVIEW" if p >= threshold else "APPROVE / MONITOR"
+
     reasons = explain(t, score)
-    con = db(); con.execute("INSERT INTO predictions(amount, probability, risk, action, reasons) VALUES (?,?,?,?,?)", (t.amt, p, risk, action, json.dumps(reasons))); con.commit(); con.close()
-    return {"fraud_probability": round(p, 5), "risk_score": score, "risk_level": risk, "action": action, "reasons": reasons}
+    con = db(); 
+    con.execute("INSERT INTO predictions(amount, probability, risk, action, reasons) VALUES (?,?,?,?,?", 
+                (t.amt, p, risk, action, json.dumps(reasons))); 
+    con.commit(); 
+    con.close()
+    return {"fraud_probability": round(p, 5), 
+            "risk_score": score, 
+            "risk_level": risk, 
+            "action": action, 
+            "reasons": reasons}
 
 @app.get("/api/stats")
 def stats():
-    con = db(); rows = con.execute("SELECT amount, probability, risk, action, created_at, reasons FROM predictions ORDER BY id DESC LIMIT 100").fetchall(); con.close()
-    return {"total": len(rows), "high_risk": sum(r[2] == "HIGH" for r in rows), "medium_risk": sum(r[2] == "MEDIUM" for r in rows), "low_risk": sum(r[2] == "LOW" for r in rows), "recent": [{"amount": r[0], "probability": r[1], "risk": r[2], "action": r[3], "created_at": r[4], "reasons": json.loads(r[5])} for r in rows[:10]]}
+    con = db(); 
+    rows = con.execute("SELECT amount, probability, risk, action, created_at, reasons FROM predictions ORDER BY id DESC LIMIT 100").fetchall(); 
+    
+    con.close()
+    return {"total": len(rows), "high_risk": 
+            sum(r[2] == "HIGH" for r in rows), "medium_risk": 
+            sum(r[2] == "MEDIUM" for r in rows), "low_risk": 
+            sum(r[2] == "LOW" for r in rows), "recent": 
+            [{"amount": r[0], "probability": r[1], "risk": r[2], "action": r[3], "created_at": r[4], "reasons": json.loads(r[5])} for r in rows[:10]]}
