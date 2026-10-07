@@ -69,7 +69,10 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
-  const analyzeTransaction = async () => {
+  const analyzeTransaction = async (e) => {
+  // Prevent the browser from reloading the React page on form submit.
+  if (e) e.preventDefault();
+
   setLoading(true);
   setError("");
 
